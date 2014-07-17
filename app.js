@@ -14,7 +14,7 @@ var http = require('http');
  */
 var routes = require('./routes');
 
-var app = modules.exports = express();
+var app = module.exports = express();
 
 app.configure(function() {
     app.set('views', __dirname + '/views');
