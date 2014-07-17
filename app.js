@@ -12,7 +12,7 @@ var http = require('http');
 /*
  * local requires.
  */
-var routes = require('./routes');
+var routes = require('./routes/index.js');
 
 var app = module.exports = express();
 
