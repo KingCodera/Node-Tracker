@@ -31,3 +31,7 @@ exports.index = function(req, res) {
 exports.announce = function(req, res) {
     console.log(req);
 };
+
+exports.scrape = function(req, res) {
+    console.log(req);
+};
