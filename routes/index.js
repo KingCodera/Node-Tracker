@@ -1,37 +1,134 @@
-/*
- * Native requires
- */
+// Native requires
 
+// package.json requires
+var bencode = require('bencode');
+var _ = require('lodash');
 
-/*
- * package.json requires
- */
-var redis = require('redis');
+// Local requires
+var common = require('./../tools/common');
+var Database = require('./../tracker/database');
+var Peer = require('./../tools/peer');
+var Response = require('./../tools/response');
 
-/*
- * Local requires
- */
-var common = require('../tools/common.js');
+var database = new Database();
 
 exports.index = function(req, res) {
-    var torrents = 0;
-    var peers = 0;
-    rc.scard('info_hashes', function(err, reply) {
-        if (!err) {
-            torrents = reply;
-        }
-        rc.scard('peers', function(err, reply) {
-            if (!err) {
-                res.render('index', {title: 'AniDex Tracker', torrents: torrents, peers: peers});
-            }
-        });
-    });
+    res.render('index', {title: 'AniDex Tracker', torrents: [], peers: []});
 };
 
 exports.announce = function(req, res) {
-    console.log(req);
+    var info_hash = common.descramble(req.param('info_hash'));
+    var peer_id = common.descramble(req.param('peer_id'));
+    var ip = req.param('ip') || req.connection.remoteAddress;
+    var port = parseInt(req.param('port'));
+    var compact = parseInt(req.param('compact')) || 1;
+    var no_peer_id = parseInt(req.param('no_peer_id')) || 0;
+    var numwant = parseInt(req.param('numwant')) || 50;
+    var uploaded = req.param('uploaded') || 0;
+    var downloaded = req.param('downloaded') || 0;
+    var left = req.param('left');
+
+    res.header('Content-Type', 'text/plain');
+
+    if (info_hash === '') {
+        res.end(common.bencodeFailure(101, 'info_hash is required'), 'binary');
+        return;
+    }
+
+    if (peer_id === '') {
+        res.end(common.bencodeFailure(102, 'peer_id is required'), 'binary');
+        return;
+    }
+
+    if (port === NaN) {
+        res.end(common.bencodeFailure(103, 'port is required'), 'binary');
+        return;
+    }
+
+    if (info_hash.length != 40) {
+        console.log(info_hash);
+        res.end(common.bencodeFailure(150, 'info_hash is not the correct lenght'), 'binary');
+        return;
+    }
+
+    if (peer_id.length != 40) {
+        console.log(peer_id);
+        res.end(common.bencodeFailure(151, 'peer_id is not the correct length'), 'binary');
+        return;
+    }
+
+    if (numwant > 200) {
+        numwant = 200;
+    }
+
+    console.log('info_hash: ' + info_hash);
+
+    var peer = new Peer(peer_id, info_hash, numwant, compact, ip, port, uploaded, downloaded, left);
+
+    switch (req.param('event')) {
+        case 'completed':
+            // Peer is now a seeder.
+            console.log('Leecher completed download.');
+            database.completePeer(peer, function(err, response) {
+                if (err) {
+                    throw err;
+                } else {
+                    console.log(bencode.decode(response));
+                    res.end(response, 'binary');
+                }
+            });
+            break;
+        case 'stopped':
+            // No longer seeding or leeching.
+            console.log('Peer left swarm.');
+            database.removePeer(peer, function(err) {
+                if (err) {
+                    throw err;
+                }
+            });
+            break;
+        case 'started':
+            // New seeder or leecher entered swarm.
+            console.log('New peer entered swarm.');
+            database.addPeer(peer, function(err, response) {
+                if (err) {
+                    throw err;
+                } else {
+                    console.log(bencode.decode(response));
+                    res.end(response, 'binary');
+                }
+            });
+            break;
+        default:
+            // Update event.
+            console.log('Update event requested.');
+            database.updatePeer(false, peer, function(err, response) {
+                if (err) {
+                    throw err;
+                } else {
+                    console.log(bencode.decode(response));
+                    res.end(response, 'binary');
+                }
+            });
+            break;
+    }
 };
 
 exports.scrape = function(req, res) {
-    console.log(req);
+    var info_hash = {};
+    if (Array.isArray(req.param('info_hash'))) {
+        info_hash = _.map(req.param('info_hash'), function(item) {
+            return common.descramble(item);
+        });
+    } else {
+        info_hash = common.descramble(req.param('info_hash'));
+    }
+    res.header('Content-Type', 'text/plain');
+    database.scrape(info_hash, function(err, response) {
+        if (err) {
+            throw err;
+        } else {
+            res.end(response.bencodeScrape(), 'binary');
+        }
+    });
 };

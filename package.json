@@ -14,5 +14,7 @@
     , "debug": "*"    
     , "querystring": "*"
     , "redis": "*"
+    , "mysql": "*"
+    , "lodash": "*"
   }
 }
