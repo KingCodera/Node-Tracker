@@ -61,48 +61,58 @@ exports.announce = function(req, res) {
         numwant = 200;
     }
 
-    console.log('info_hash: ' + info_hash);
-
     var peer = new Peer(peer_id, info_hash, numwant, compact, ip, port, uploaded, downloaded, left);
 
     switch (req.param('event')) {
         case 'completed':
             // Peer is now a seeder.
-            console.log('Leecher completed download.');
+            console.log('Leecher: ' + peer.peer_id + ' completed download of: ' + peer.info_hash);
             database.completePeer(peer, function(err, response) {
                 if (err) {
                     throw err;
                 } else {
-                    console.log(bencode.decode(response));
                     res.end(response, 'binary');
                 }
             });
             break;
         case 'stopped':
             // No longer seeding or leeching.
-            console.log('Peer left swarm.');
-            database.removePeer(peer, function(err) {
+            if (peer._left == 0) {
+                console.log('Peer: ' + peer.peer_id + ' left swarm as seeder for torrent: ' + peer.info_hash);
+            } else {
+                console.log('Peer: ' + peer.peer_id + ' left swarm as leecher for torrent: ' + peer.info_hash);
+            }
+            database.removePeer(peer, function(err, response) {
                 if (err) {
                     throw err;
+                } else {
+                    res.end(response, 'binary');
                 }
             });
             break;
         case 'started':
             // New seeder or leecher entered swarm.
-            console.log('New peer entered swarm.');
+            if (peer._left == 0) {
+                console.log('Peer: ' + peer.peer_id + ' entered swarm as seeder for torrent: ' + peer.info_hash);
+            } else {
+                console.log('Peer: ' + peer.peer_id + ' entered swarm as leecher for torrent: ' + peer.info_hash);
+            }
+
+            console.log('Peer information: ');
+            console.log(peer);
+
             database.addPeer(peer, function(err, response) {
                 if (err) {
                     throw err;
                 } else {
-                    console.log(bencode.decode(response));
                     res.end(response, 'binary');
                 }
             });
             break;
         default:
             // Update event.
-            console.log('Update event requested.');
-            database.updatePeer(false, peer, function(err, response) {
+            console.log('Peer: ' + peer.peer_id + ' update event for: ' + peer.info_hash);
+            database.updatePeer(peer, function(err, response) {
                 if (err) {
                     throw err;
                 } else {

@@ -48,14 +48,12 @@ Response.prototype.bencodePeersIPv4Compact = function() {
     var string = _.map(this.peers, function(item) {
         return common.hexEncodeIPv4(item.ip, item.port);
     }).join('');
-    console.log(string);
     var buf = new Buffer(string, 'hex');
     return this.bencodePeers(buf, '');
 };
 
 // Adds scrape info to the response.
 Response.prototype.addScrape = function(item) {
-    console.log(item);
     this.files[item.info_hash] = {
         'complete': item.complete,
         'downloaded': item.downloaded,

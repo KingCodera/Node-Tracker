@@ -38,7 +38,6 @@ exports.hexEncodeIPv4 = function(ip, port) {
         return hexZerofill(parseInt(value).toString(16), 2);
     });
     port = hexZerofill(port.toString(16), 4);
-    console.log(port);
 
     return (ipHex.join('') + port);
 }
